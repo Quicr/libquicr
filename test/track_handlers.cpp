@@ -11,6 +11,11 @@
 
 #include <doctest/doctest.h>
 
+#include <chrono>
+#include <functional>
+#include <future>
+#include <thread>
+
 class TestPublishTrackHandler : public quicr::PublishTrackHandler
 {
     TestPublishTrackHandler()
@@ -289,6 +294,9 @@ class TestTransport : public quicr::Transport
     std::shared_ptr<quicr::Stream> CreateDataStream(const std::shared_ptr<quicr::Connection>& connection,
                                                     uint8_t) override
     {
+        if (create_data_stream_hook) {
+            create_data_stream_hook();
+        }
         last_data_stream = std::make_shared<TestStream>(2 + 4 * created_streams++, connection);
         return last_data_stream;
     }
@@ -310,6 +318,7 @@ class TestTransport : public quicr::Transport
     std::map<std::uint64_t, quicr::Bytes> stream_data;
     std::vector<std::uint64_t> reset_streams;
     std::optional<std::vector<std::uint64_t>> reset_streams_at_publish_done;
+    std::function<void()> create_data_stream_hook;
 
   private:
     void QueueDeferredReply(std::function<void()>&&) override {}
@@ -329,6 +338,8 @@ class TestStreamPublishTrackHandler : public quicr::PublishTrackHandler
     }
 
     std::vector<std::pair<std::uint64_t, std::uint64_t>> cancelled;
+
+    bool HasRequest() const { return GetRequest() != nullptr; }
 };
 
 static std::shared_ptr<quicr::Session>
@@ -441,17 +452,13 @@ TEST_CASE("UnsubscribeNamespace cancels the request stream")
     }
     SUBCASE("Pending subscription") {}
     handler->statuses.clear();
-    const auto stream_id = handler->GetRequestStreamId();
-    REQUIRE(stream_id);
 
     session->UnsubscribeNamespace(handler);
 
     REQUIRE(transport->closed_stream);
-    CHECK(transport->closed_stream->GetStreamId() == *stream_id);
     CHECK(transport->close_operation == quicr::StreamOperation::kCancel);
     CHECK(handler->GetStatus() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
-    CHECK_FALSE(handler->GetRequestId());
-    CHECK_FALSE(handler->GetRequestStreamId());
+    CHECK_FALSE(handler->IsRegistered());
     REQUIRE(handler->statuses.size() == 1);
     CHECK(handler->statuses.front() == quicr::SubscribeNamespaceHandler::Status::kNotSubscribed);
 
@@ -487,6 +494,60 @@ TEST_CASE("Publishing reports rejected subgroup enqueues")
         CHECK(handler->ForwardPublishedData(false, 0, 0, std::make_shared<quicr::Bytes>(payload)) ==
               Status::kSubgroupClosed);
     }
+}
+
+TEST_CASE("An in-flight publication drains after its request is removed")
+{
+    using namespace std::chrono_literals;
+    using Status = quicr::PublishTrackHandler::PublishObjectStatus;
+
+    auto transport = std::make_shared<TestTransport>();
+    auto session = CreateTestSession(transport);
+    auto handler = std::make_shared<TestStreamPublishTrackHandler>();
+    handler->SetTrackAlias(0);
+    session->PublishTrack(handler);
+    handler->SetStatus(quicr::PublishTrackHandler::Status::kOk);
+
+    std::promise<void> entered_create_stream;
+    auto entered_create_stream_future = entered_create_stream.get_future();
+    std::promise<void> continue_create_stream;
+    auto continue_create_stream_future = continue_create_stream.get_future().share();
+    transport->create_data_stream_hook = [&] {
+        entered_create_stream.set_value();
+        continue_create_stream_future.wait();
+    };
+
+    quicr::ObjectHeaders headers{};
+    const quicr::Bytes payload{ 1 };
+    headers.payload_length = payload.size();
+    auto publication = std::async(std::launch::async, [&] { return handler->PublishObject(headers, payload); });
+    while (entered_create_stream_future.wait_for(0s) != std::future_status::ready &&
+           publication.wait_for(0s) != std::future_status::ready) {
+        std::this_thread::yield();
+    }
+    const bool entered = entered_create_stream_future.wait_for(0s) == std::future_status::ready;
+    if (!entered) {
+        CHECK(entered);
+        CHECK(publication.get() == Status::kOk);
+        return;
+    }
+
+    auto removal = std::async(std::launch::async, [&] { session->UnpublishTrack(handler); });
+    while (handler->HasRequest() && removal.wait_for(0s) != std::future_status::ready) {
+        std::this_thread::yield();
+    }
+    const bool request_removed = !handler->HasRequest();
+    const bool removal_waited_for_publication = removal.wait_for(0s) == std::future_status::timeout;
+
+    continue_create_stream.set_value();
+    const auto publication_status = publication.get();
+    removal.get();
+
+    CHECK(request_removed);
+    CHECK(removal_waited_for_publication);
+    CHECK(publication_status == Status::kOk);
+    CHECK(transport->created_streams == 1);
+    CHECK(transport->closed_stream == transport->last_data_stream);
 }
 
 TEST_CASE("A subgroup the subscriber cancels is reported and not reopened")
@@ -539,7 +600,7 @@ TEST_CASE("Fetch closure is terminal")
     using Status = quicr::PublishTrackHandler::PublishObjectStatus;
     auto transport = std::make_shared<TestTransport>();
     auto session = CreateTestSession(transport);
-    auto handler = quicr::PublishFetchHandler::Create({ {}, {} }, 0, 0, quicr::messages::GroupOrder::kAscending, 1000);
+    auto handler = quicr::PublishFetchHandler::Create({ {}, {} }, 0, quicr::messages::GroupOrder::kAscending, 1000);
     const auto request_stream = std::make_shared<TestStream>(0, session->GetDefaultConnection());
     auto request = quicr::messages::Message{}.PrependType(quicr::messages::ControlMessageType::kFetch).ReserveLength();
     request.Append(quicr::UintVar(0))
@@ -554,7 +615,7 @@ TEST_CASE("Fetch closure is terminal")
         request_stream->rx_data.Push(std::span<const uint8_t>(*request.ToBytes()));
     }
     session->GetDefaultConnection()->OnRecvStream(request_stream);
-    session->BindFetchTrack(handler);
+    session->BindFetchTrack(0, handler);
     quicr::ObjectHeaders headers{};
     const quicr::Bytes payload{ 1 };
     headers.payload_length = payload.size();
@@ -576,6 +637,14 @@ TEST_CASE("Fetch closure is terminal")
     {
         REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
         session->UnbindFetchTrack(handler);
+    }
+    SUBCASE("Cancelled by peer")
+    {
+        REQUIRE(handler->PublishObject(headers, payload) == Status::kOk);
+        session->GetDefaultConnection()->OnStreamClosed(request_stream, quicr::StreamClosedFlag::kReset);
+        CHECK(handler->GetStatus() == quicr::PublishTrackHandler::Status::kUnsubscribed);
+        CHECK(transport->closed_stream == transport->last_data_stream);
+        CHECK(transport->close_operation == quicr::StreamOperation::kReset);
     }
     CHECK(handler->PublishObject(headers, payload) == Status::kFetchClosed);
     const auto attempts = transport->enqueue_count;

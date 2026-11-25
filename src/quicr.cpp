@@ -1448,6 +1448,7 @@ struct quicr_publish_fetch_handler
 {
     std::shared_ptr<PublishFetchHandler> impl;
     std::shared_ptr<HandlerCallbackState> callback_state;
+    std::uint64_t request_id;
 };
 
 struct quicr_subscribe_track_handler
@@ -1973,10 +1974,9 @@ class PublishFetchHandlerAdapter : public quicr::PublishFetchHandler
                                const quicr_publish_fetch_handler_callbacks_t& callbacks,
                                const FullTrackName& full_track_name,
                                std::uint8_t priority,
-                               std::uint64_t request_id,
                                messages::GroupOrder group_order,
                                std::uint32_t default_ttl)
-      : PublishFetchHandler(full_track_name, priority, request_id, group_order, default_ttl)
+      : PublishFetchHandler(full_track_name, priority, group_order, default_ttl)
       , owner_(owner)
       , callback_state_(owner->callback_state)
       , callbacks_(callbacks)
@@ -2955,12 +2955,12 @@ extern "C"
             *handler = nullptr;
             auto result = std::make_unique<quicr_publish_fetch_handler_t>();
             result->callback_state = std::make_shared<HandlerCallbackState>();
+            result->request_id = request_id;
             result->impl = std::make_shared<PublishFetchHandlerAdapter>(
               result.get(),
               callbacks ? *callbacks : quicr_publish_fetch_handler_callbacks_t{},
               ToCppType<FullTrackName>(*ftn),
               priority,
-              request_id,
               ToCppType<messages::GroupOrder>(group_order),
               default_ttl);
 
@@ -3027,7 +3027,7 @@ extern "C"
 
             handler->callback_state->EnableCallbacks();
             try {
-                session_impl->BindFetchTrack(handler->impl);
+                session_impl->BindFetchTrack(handler->request_id, handler->impl);
             } catch (...) {
                 if (!handler->impl->IsRegistered()) {
                     handler->callback_state->DisableCallbacks();

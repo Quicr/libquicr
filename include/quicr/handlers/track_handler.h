@@ -11,19 +11,12 @@
 #include "quicr/track_name.h"
 #include "quicr/utilities/thread_safety.h"
 
-#include <cstdint>
 #include <memory>
 #include <mutex>
-#include <optional>
-#include <span>
-#include <vector>
 
 namespace quicr {
-    class Connection;
     class Session;
-
-    /// @brief Internal stream type; exposed only through opaque shared ownership.
-    class Stream;
+    struct Request;
 
     /**
      * @brief Common request state for track-related handlers.
@@ -35,18 +28,7 @@ namespace quicr {
     class TrackHandler : public std::enable_shared_from_this<TrackHandler>
     {
       public:
-        struct Binding
-        {
-            std::uint64_t connection_id{ 0 };
-            std::optional<std::uint64_t> request_id;
-            std::shared_ptr<Stream> request_stream;
-        };
-
         friend class Session;
-
-        /// Sends its own request updates, so it reaches the request stream directly. Friendship does not
-        /// reach an application's subclass of it, which is the point.
-        friend class SubscribeTrackHandler;
 
         /// @brief Releases this handler; shared stream/session handles are released automatically.
         virtual ~TrackHandler() = default;
@@ -89,58 +71,11 @@ namespace quicr {
         }
 
         /**
-         * @brief Sets or clears the connection-scoped request ID.
-         * @param request_id Request ID assigned by the session, or `std::nullopt` when unbound.
-         * @note Thread-safe with request-stream installation and removal.
-         */
-        void SetRequestId(std::optional<uint64_t> request_id)
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            request_id_ = request_id;
-        }
-
-        /**
-         * @brief Get the request ID
-         *
-         * @return Current connection-scoped request ID, or `std::nullopt` when none is assigned.
-         */
-        std::optional<uint64_t> GetRequestId() const noexcept
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            return request_id_;
-        }
-
-        /**
-         * @brief Get the stream ID of the request control stream.
-         * @return Request stream's ID, or `std::nullopt` if no stream is attached.
-         * @note Thread-safe with request-stream installation/removal.
-         */
-        std::optional<uint64_t> GetRequestStreamId() const;
-
-        /**
          * @brief Get the full track name
          *
          * @return A copy of the full track name.
          */
         FullTrackName GetFullTrackName() const noexcept { return { full_track_name_ }; }
-
-        /**
-         * @brief Gets the transport connection identifier assigned by the session.
-         * @return Connection ID, or the initial value zero before assignment.
-         */
-        uint64_t GetConnectionId() const noexcept
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            return connection_id_;
-        }
-
-        std::shared_ptr<Connection> GetConnection() const;
-
-        Binding GetBinding() const
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            return { connection_id_, request_id_, request_stream_ };
-        }
 
         /**
          * @brief Whether this handler is registered with a live session.
@@ -184,87 +119,25 @@ namespace quicr {
          */
         std::weak_ptr<Session> GetSession() const;
 
+        /**
+         * @brief Gets the request bound to this handler.
+         * @return Bound request, or nullptr if the handler is unbound.
+         */
+        std::shared_ptr<Request> GetRequest() const;
+
         std::mutex binding_operation_mutex_;
 
-        // --------------------------------------------------------------------------
-        // Internal
-        // --------------------------------------------------------------------------
       private:
-        /**
-         * @brief Set the connection ID
-         *
-         * @details The MOQ Handler sets the connection ID
-         */
-        void SetConnectionId(uint64_t connection_id)
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            connection_id_ = connection_id;
-        };
+        void BindRequest(std::shared_ptr<Request> request);
 
-        void SetBinding(Binding binding)
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            connection_id_ = binding.connection_id;
-            request_id_ = binding.request_id;
-            request_stream_ = std::move(binding.request_stream);
-        }
+        void UnbindRequest();
 
         void RegisterSession(const std::shared_ptr<Session>& session);
 
         void UnregisterSession(const std::shared_ptr<Session>& session);
 
-        /**
-         * @brief Set the bidir request control stream.
-         * @param request_stream Handle to the request stream.
-         */
-        void SetRequestStream(const std::shared_ptr<Stream>& request_stream)
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            request_stream_ = request_stream;
-        }
-
-        /**
-         * @brief Get the request control stream.
-         *
-         * @details Returns an owning handle, which keeps the stream alive for as long as the caller
-         *      holds it. Hold the result for the duration of an operation rather than calling this
-         *      repeatedly, so a null check and the use that follows cannot disagree.
-         *
-         * @return Handle to the request stream, or nullptr if unset.
-         */
-        std::shared_ptr<Stream> GetRequestStream() const
-        {
-            std::lock_guard lock(request_stream_mutex_);
-            return request_stream_;
-        }
-
-        // --------------------------------------------------------------------------
-        // Member variables
-        // --------------------------------------------------------------------------
-        std::uint64_t connection_id_{ 0 }; // QUIC transport connection ID
-
-        /**
-         * request_id_ is the primary index/key for subscribe context/delegate storage.
-         *   It is use as the request_id in MoQ related subscribes.  Request ID will adapt
-         *   to received reqeust IDs, so the value will reflect either the received reqeust ID
-         *   or the next one that increments from last received ID.
-         */
-        std::optional<uint64_t> request_id_;
-
-        /**
-         * The bidirectional request control stream, which control messages for this request go out on.
-         *
-         * @details Held for the life of the request so that control messages go out without a lookup.
-         *      The transport may close the stream underneath this handle, which `Stream::IsOpen`
-         *      reports and the transport rejects on send.
-         *
-         *      The session installs and releases the handle while application threads read it, so
-         *      access is guarded. Never call into the session while holding the mutex, so that the
-         *      session lock is always taken first.
-         */
-        std::shared_ptr<Stream> request_stream_ QUICR_GUARDED_BY(request_stream_mutex_);
-
-        mutable std::mutex request_stream_mutex_; ///< Guards request_stream_
+        mutable std::mutex request_mutex_;
+        std::weak_ptr<Request> request_ QUICR_GUARDED_BY(request_mutex_);
 
         mutable std::mutex registration_mutex_;
         std::weak_ptr<Session> registered_session_ QUICR_GUARDED_BY(registration_mutex_);

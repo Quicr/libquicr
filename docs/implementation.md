@@ -338,8 +338,8 @@ Standalone fetch:
 
 1. `FetchTrack()` sends FETCH with inclusive start and end locations.
 2. The peer invokes `StandaloneFetchReceived()`.
-3. The serving application creates `PublishFetchHandler` with the incoming
-   request ID and calls `BindFetchTrack()`.
+3. The serving application creates `PublishFetchHandler` and calls
+   `BindFetchTrack(request_id, handler)` with the incoming request ID.
 4. Fetch objects are published on a fetch data stream.
 5. The serving application calls `UnbindFetchTrack()` to drain queued objects,
    finish the fetch stream, and remove its publisher binding.

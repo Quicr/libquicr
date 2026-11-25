@@ -21,40 +21,30 @@ namespace quicr {
          * @brief Constructs a server-side FETCH publisher.
          * @param full_track_name Track being fetched.
          * @param priority Publisher and transport scheduling priority.
-         * @param subscribe_id Request identifier written in the FETCH header.
          * @param group_order Serialization order promised for returned objects.
          * @param ttl Default object queue lifetime used when an object has no TTL.
          */
         PublishFetchHandler(const FullTrackName& full_track_name,
                             uint8_t priority,
-                            uint64_t subscribe_id,
                             messages::GroupOrder group_order,
-                            uint32_t ttl)
-          : PublishTrackHandler(full_track_name, TrackMode::kStream, priority, priority, ttl)
-          , group_order_(group_order)
-          , serialization_state_(group_order)
-        {
-            SetRequestId(subscribe_id);
-        }
+                            uint32_t ttl);
 
       public:
         /**
          * @brief Creates a FETCH publisher with shared ownership.
          * @param full_track_name Track being fetched.
          * @param priority Publisher and transport scheduling priority.
-         * @param subscribe_id Request identifier written in the FETCH header.
          * @param group_order Serialization order promised for returned objects.
          * @param ttl Default object queue lifetime used when an object has no TTL.
          * @return Shared ownership of the new handler.
          */
         static std::shared_ptr<PublishFetchHandler> Create(const FullTrackName& full_track_name,
                                                            uint8_t priority,
-                                                           uint64_t subscribe_id,
                                                            messages::GroupOrder group_order,
                                                            uint32_t ttl)
         {
             return std::shared_ptr<PublishFetchHandler>(
-              new PublishFetchHandler(full_track_name, priority, subscribe_id, group_order, ttl));
+              new PublishFetchHandler(full_track_name, priority, group_order, ttl));
         }
 
         /**
@@ -80,13 +70,15 @@ namespace quicr {
 
       private:
         /**
-         * @brief Finish the fetch: let whatever is queued drain, then close the stream.
+         * @brief Finish or cancel the fetch.
          *
-         * @details The empty object carries no payload; it exists to mark the stream close-on-empty
-         *      once the transport reaches it, so objects already queued still go out. Does nothing if
-         *      the fetch never sent an object, since there is no stream to close.
+         * @param completed `true` to drain queued objects and close with FIN; `false` to discard them
+         *      and reset the stream.
+         * @details A completed fetch enqueues an empty close marker after existing objects. Does
+         *      nothing to the transport if the fetch never sent an object, since there is no stream
+         *      to close. Either outcome makes the handler terminal.
          */
-        void EndFetch();
+        void EndFetch(bool completed = true);
 
         messages::GroupOrder group_order_;
         messages::FetchObjectSerializationState serialization_state_;

@@ -371,6 +371,19 @@ MakeTestClient(quicr::SessionManager& session_mgr,
     return std::make_pair(session, callbacks);
 }
 
+static std::set<std::uint64_t>
+GetOpenRequestStreamIds(const std::shared_ptr<Session>& session)
+{
+    const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
+    std::set<std::uint64_t> stream_ids;
+    for (const auto& stream : connection->GetStreams()) {
+        if (stream->IsBidirectional() && stream->IsOpen()) {
+            stream_ids.insert(stream->GetStreamId());
+        }
+    }
+    return stream_ids;
+}
+
 // Check the request stream (assuming the first bidir stream) gets closed and cleaned, returning its ID.
 static std::uint64_t
 RequireRequestStreamClosed(const std::shared_ptr<Session>& session,
@@ -1105,11 +1118,9 @@ TEST_CASE("Integration - GOAWAY migration")
         const auto old_subscribe = old_subscribe_future.get();
         REQUIRE(
           WaitFor([&original_handler] { return original_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
-        const auto old_connection = original_handler->GetConnection();
+        const auto old_connection = original_session->GetDefaultConnection();
         REQUIRE(old_connection != nullptr);
-        CHECK_EQ(original_handler->GetConnectionId(), old_connection->GetID());
-        const auto original_request_id = original_handler->GetRequestId();
-        REQUIRE(original_request_id.has_value());
+        const auto original_request_id = old_subscribe.request_id;
 
         const FullTrackName publish_name{ TrackNamespace(std::vector<std::string>{ "goaway", "published" }),
                                           { 4, 5, 6 } };
@@ -1117,7 +1128,6 @@ TEST_CASE("Integration - GOAWAY migration")
           PublishTrackHandler::Create(publish_name, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
         original_session->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
-        REQUIRE_EQ(publish_handler->GetConnection(), old_connection);
 
         // Observe the subscription being renegotiated on relay B, then redirect.
         std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
@@ -1138,19 +1148,17 @@ TEST_CASE("Integration - GOAWAY migration")
 
         // The original handler must be rebound in place to the original session's
         // new current connection.
-        REQUIRE(WaitFor([&original_handler, &old_connection] {
-            const auto connection = original_handler->GetConnection();
-            return connection != nullptr && connection->GetID() != old_connection->GetID() &&
+        REQUIRE(WaitFor([&original_session, &original_handler, &old_connection] {
+            const auto connection = original_session->GetDefaultConnection();
+            return connection != nullptr && connection != old_connection &&
                    original_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
         }));
 
-        const auto new_connection = original_handler->GetConnection();
+        const auto new_connection = original_session->GetDefaultConnection();
         REQUIRE(new_connection != nullptr);
         CHECK_NE(new_connection, old_connection);
-        CHECK_EQ(original_handler->GetRequestId(), original_request_id);
-        REQUIRE(WaitFor([&publish_handler, &new_connection] {
-            return publish_handler->GetConnection() == new_connection && publish_handler->CanPublish();
-        }));
+        CHECK_EQ(new_subscribe.request_id, original_request_id);
+        REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
         CHECK_EQ(original_session->GetDefaultConnection(), new_connection);
 
         const Bytes payload{ 1, 2, 3 };
@@ -1162,8 +1170,6 @@ TEST_CASE("Integration - GOAWAY migration")
 
         // Relay A is released only after the handler has cut over.
         CHECK(WaitFor([&old_connection] { return old_connection->GetStatus() != Connection::Status::kReady; }));
-        CHECK_EQ(original_handler->GetConnection(), new_connection);
-        CHECK_EQ(original_handler->GetRequestId(), original_request_id);
         CHECK_EQ(original_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
     };
 
@@ -1202,7 +1208,7 @@ TEST_CASE("Integration - QMUX GOAWAY keeps the session on its connection")
     session->SubscribeTrack(handler);
     REQUIRE(WaitFor([&handler] { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-    const auto connection = handler->GetConnection();
+    const auto connection = session->GetDefaultConnection();
 
     std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
     auto new_subscribe_future = new_subscribe_promise.get_future();
@@ -1220,7 +1226,6 @@ TEST_CASE("Integration - QMUX GOAWAY keeps the session on its connection")
 
     // For now, don't migrate.
     CHECK(new_subscribe_future.wait_for(kNegativeTimeout) == std::future_status::timeout);
-    CHECK_EQ(handler->GetConnection(), connection);
     CHECK_EQ(handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
     CHECK_EQ(session->GetDefaultConnection(), connection);
     CHECK_EQ(connection->GetStatus(), Connection::Status::kReady);
@@ -1268,11 +1273,6 @@ TEST_CASE("Integration - request GOAWAY migrates part of a session")
             return migrating_handler->GetStatus() == SubscribeTrackHandler::Status::kOk &&
                    staying_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
         }));
-        REQUIRE_EQ(migrating_handler->GetConnection(), old_connection);
-        REQUIRE_EQ(staying_handler->GetConnection(), old_connection);
-        const auto migrating_request_id = migrating_handler->GetRequestId();
-        REQUIRE(migrating_request_id.has_value());
-
         const auto server_handler =
           old_relay->GetSubscriberPublishHandler(TrackHash(migrating_name).track_fullname_hash);
         REQUIRE(server_handler != nullptr);
@@ -1284,15 +1284,10 @@ TEST_CASE("Integration - request GOAWAY migrates part of a session")
         const auto redirect_uri = quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, new_relay_port);
         old_server_session->GoAway(redirect_uri, std::chrono::seconds{ 5 }, server_handler);
         REQUIRE(new_subscribe_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        CHECK_EQ(new_subscribe_future.get().request_id, *migrating_request_id);
-        REQUIRE(WaitFor([&migrating_handler, &old_connection] {
-            const auto connection = migrating_handler->GetConnection();
-            return connection != nullptr && connection != old_connection &&
-                   migrating_handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
-        }));
+        (void)new_subscribe_future.get();
+        REQUIRE(WaitFor(
+          [&migrating_handler] { return migrating_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
 
-        CHECK_EQ(staying_handler->GetConnection(), old_connection);
-        CHECK_EQ(migrating_handler->GetRequestId(), migrating_request_id);
         CHECK_EQ(staying_handler->GetStatus(), SubscribeTrackHandler::Status::kOk);
         CHECK_EQ(old_connection->GetStatus(), Connection::Status::kReady);
         CHECK_EQ(session->GetDefaultConnection(), old_connection);
@@ -1387,11 +1382,8 @@ TEST_CASE("Integration - REQUEST_ERROR redirect migration")
     CHECK_EQ(new_subscribe.track_full_name.name, redirected_name.name);
     CHECK_EQ(handler->GetFullTrackName().name_space, ftn.name_space);
     CHECK_EQ(handler->GetFullTrackName().name, ftn.name);
-    REQUIRE(WaitFor([&handler, &old_connection] {
-        const auto connection = handler->GetConnection();
-        return connection != nullptr && connection->GetID() != old_connection->GetID() &&
-               handler->GetStatus() == SubscribeTrackHandler::Status::kOk;
-    }));
+    REQUIRE(WaitFor([&handler] { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
+    CHECK_EQ(session->GetDefaultConnection(), old_connection);
 }
 
 TEST_CASE("Integration - Datagram object roundtrip")
@@ -1766,17 +1758,18 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
         std::future<TestServer::SubscribeDetails> sub_future = sub_promise.get_future();
         server->SetSubscribePromise(std::move(sub_promise));
 
-        std::promise<uint64_t> unsub_promise;
-        std::future<uint64_t> unsub_future = unsub_promise.get_future();
+        std::promise<void> unsub_promise;
+        std::future<void> unsub_future = unsub_promise.get_future();
         server->SetUnsubscribePromise(std::move(unsub_promise));
 
         // Subscribe and wait for the track to go live.
         CHECK_NOTHROW(session->SubscribeTrack(handler));
         REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        const auto request_id = sub_future.get().request_id;
+        sub_future.get();
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
-        REQUIRE(handler->GetRequestStreamId().has_value());
-        const auto request_stream_id = handler->GetRequestStreamId().value();
+        const auto request_stream_ids = GetOpenRequestStreamIds(session);
+        REQUIRE(request_stream_ids.size() == 1);
+        const auto request_stream_id = *request_stream_ids.begin();
 
         const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
         const auto request_stream = connection->GetStream(request_stream_id);
@@ -1827,7 +1820,7 @@ TEST_CASE("Integration - Unsubscribe resets the subscribe request stream")
 
         // Callback should fire.
         REQUIRE(unsub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
-        CHECK_EQ(unsub_future.get(), request_id);
+        CHECK_NOTHROW(unsub_future.get());
     };
 
     SUBCASE("Raw QUIC")
@@ -1873,8 +1866,9 @@ TEST_CASE("Integration - CloseRequestHandler UnsubscribeReceived when client Uns
         REQUIRE(sub_future.wait_for(kDefaultTimeout) == std::future_status::ready);
         const auto request_id = sub_future.get().request_id;
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == SubscribeTrackHandler::Status::kOk; }));
-        REQUIRE(handler->GetRequestStreamId().has_value());
-        const auto request_stream_id = handler->GetRequestStreamId().value();
+        const auto request_stream_ids = GetOpenRequestStreamIds(session);
+        REQUIRE(request_stream_ids.size() == 1);
+        const auto request_stream_id = *request_stream_ids.begin();
 
         CHECK_NOTHROW(session->UnsubscribeTrack(handler));
 
@@ -2085,11 +2079,12 @@ TEST_CASE("Integration - Publish namespace done resets the request stream")
         const auto handler = PublishNamespaceHandler::Create(ns);
         CHECK_NOTHROW(session->PublishNamespace(handler));
         REQUIRE(recv_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        const auto received = recv_future.get();
         REQUIRE(WaitFor([&handler]() { return handler->GetStatus() == PublishNamespaceHandler::Status::kOk; }));
-        REQUIRE(handler->GetRequestStreamId().has_value());
-        const auto request_stream_id = handler->GetRequestStreamId().value();
-        REQUIRE(handler->GetRequestId().has_value());
-        const auto request_id = handler->GetRequestId().value();
+        const auto request_stream_ids = GetOpenRequestStreamIds(session);
+        REQUIRE(request_stream_ids.size() == 1);
+        const auto request_stream_id = *request_stream_ids.begin();
+        const auto request_id = received.attributes.request_id;
 
         const auto connection = std::static_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
         const auto request_stream = connection->GetStream(request_stream_id);
@@ -2580,7 +2575,7 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.
-        std::promise<TestServer::SubscribeDetails> publish_ok_promise;
+        std::promise<FullTrackName> publish_ok_promise;
         auto publish_ok_future = publish_ok_promise.get_future();
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
@@ -2599,8 +2594,8 @@ TEST_CASE("Integration - Subscribe Tracks with matching track")
         auto publish_ok_status = publish_ok_future.wait_for(kDefaultTimeout);
         REQUIRE(publish_ok_status == std::future_status::ready);
         const auto& received_publish_ok = publish_ok_future.get();
-        CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
-        CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+        CHECK_EQ(received_publish_ok.name_space, existing_track.name_space);
+        CHECK_EQ(received_publish_ok.name, existing_track.name);
     };
 
     SUBCASE("Raw QUIC")
@@ -2639,7 +2634,7 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         callbacks->SetPublishReceivedPromise(std::move(publish_promise));
 
         // Set up promise to verify server gets accepted publish.
-        std::promise<TestServer::SubscribeDetails> publish_ok_promise;
+        std::promise<FullTrackName> publish_ok_promise;
         auto publish_ok_future = publish_ok_promise.get_future();
         server->SetPublishAcceptedPromise(std::move(publish_ok_promise));
 
@@ -2665,8 +2660,8 @@ TEST_CASE("Integration - Subscribe Tracks with ongoing match")
         auto publish_ok_status = publish_ok_future.wait_for(kDefaultTimeout);
         REQUIRE(publish_ok_status == std::future_status::ready);
         const auto& received_publish_ok = publish_ok_future.get();
-        CHECK_EQ(received_publish_ok.track_full_name.name_space, existing_track.name_space);
-        CHECK_EQ(received_publish_ok.track_full_name.name, existing_track.name);
+        CHECK_EQ(received_publish_ok.name_space, existing_track.name_space);
+        CHECK_EQ(received_publish_ok.name, existing_track.name);
     };
 
     SUBCASE("Raw QUIC")
@@ -2922,7 +2917,7 @@ TEST_CASE("Integration - Fetch object roundtrip")
         }
 
         session_mgr.RemoveHandler(session, fetch_handler);
-        CHECK_FALSE(fetch_handler->GetRequestId().has_value());
+        CHECK_FALSE(fetch_handler->IsRegistered());
     };
 
     SUBCASE("Raw QUIC")
@@ -3819,9 +3814,8 @@ TEST_CASE("Integration - Dedicated bidirectional request streams")
         REQUIRE(ns_ready);
 
         // Each request carries its control messages on a bidirectional stream of its own.
-        REQUIRE(ns_handler->GetRequestStreamId().has_value());
-
-        const auto ns_stream_id = ns_handler->GetRequestStreamId().value();
+        const auto ns_stream_ids = GetOpenRequestStreamIds(session);
+        REQUIRE(ns_stream_ids.size() == 1);
 
         FullTrackName ftn;
         ftn.name_space = prefix;
@@ -3833,16 +3827,16 @@ TEST_CASE("Integration - Dedicated bidirectional request streams")
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
         REQUIRE(sub_ready);
-        REQUIRE(sub_handler->GetRequestStreamId().has_value());
-        CHECK(sub_handler->GetRequestStreamId().value() != ns_stream_id);
+        const auto sub_stream_ids = GetOpenRequestStreamIds(session);
+        CHECK(sub_stream_ids.size() == ns_stream_ids.size() + 1);
 
         auto [publisher, _] = MakeTestClient(session_mgr, true, std::nullopt, protocol_scheme);
         const auto pub_handler = std::make_shared<CallbackPublishTrackHandler>(ftn, 1, 5000, [](const auto&) {});
         CHECK_NOTHROW(publisher->PublishTrack(pub_handler));
         const bool pub_ready = WaitFor([&pub_handler]() { return pub_handler->CanPublish(); });
         REQUIRE(pub_ready);
-        REQUIRE(pub_handler->GetRequestStreamId().has_value());
-        const auto pub_stream_id = pub_handler->GetRequestStreamId().value();
+        const auto pub_stream_ids = GetOpenRequestStreamIds(publisher);
+        REQUIRE(pub_stream_ids.size() == 1);
 
         TrackNamespace pub_ns(std::vector<std::string>{ "ctrl", "publish" });
         std::promise<TestServer::PublishNamespaceDetails> pub_ns_server_promise;
@@ -3857,9 +3851,8 @@ TEST_CASE("Integration - Dedicated bidirectional request streams")
         const bool pub_ns_ready =
           WaitFor([&pub_ns_handler]() { return pub_ns_handler->GetStatus() == PublishNamespaceHandler::Status::kOk; });
         REQUIRE(pub_ns_ready);
-        REQUIRE(pub_ns_handler->GetRequestStreamId().has_value());
         // Each request gets its own request stream, even on the same connection.
-        CHECK(pub_ns_handler->GetRequestStreamId().value() != pub_stream_id);
+        CHECK(GetOpenRequestStreamIds(publisher).size() == pub_stream_ids.size() + 1);
     };
 
     SUBCASE("Raw QUIC")
@@ -4068,10 +4061,11 @@ TEST_CASE("Integration - New group requests preserve server forwarding state")
     REQUIRE(pub_handler);
     const auto session = pub_handler->GetSession().lock();
     REQUIRE(session);
-    const auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(pub_handler->GetConnection());
+    const auto connection = std::dynamic_pointer_cast<PicoQuicConnection>(session->GetDefaultConnection());
     REQUIRE(connection);
-    REQUIRE(pub_handler->GetRequestStreamId().has_value());
-    const auto stream = connection->GetStream(*pub_handler->GetRequestStreamId());
+    const auto request_stream_ids = GetOpenRequestStreamIds(session);
+    REQUIRE(request_stream_ids.size() == 1);
+    const auto stream = connection->GetStream(*request_stream_ids.begin());
     REQUIRE(stream);
 
     for (const auto forward :
@@ -4143,18 +4137,17 @@ TEST_CASE("Integration - Request updates reuse the handler's request stream")
         const bool sub_ready =
           WaitFor([&sub_handler]() { return sub_handler->GetStatus() == SubscribeTrackHandler::Status::kOk; });
         REQUIRE(sub_ready);
-        REQUIRE(sub_handler->GetRequestStreamId().has_value());
 
         // The update must go out on the handler's existing request stream rather than opening a new
         // one.
-        const auto stream_id_before = sub_handler->GetRequestStreamId().value();
+        const auto streams_before = GetOpenRequestStreamIds(subscriber);
+        REQUIRE(streams_before.size() == 1);
 
         CHECK_NOTHROW(sub_handler->RequestNewGroup());
 
         const bool received = WaitFor([new_group_was_requested]() { return new_group_was_requested->load(); });
         CHECK(received);
-        REQUIRE(sub_handler->GetRequestStreamId().has_value());
-        CHECK(sub_handler->GetRequestStreamId().value() == stream_id_before);
+        CHECK(GetOpenRequestStreamIds(subscriber) == streams_before);
     };
 
     SUBCASE("Raw QUIC")

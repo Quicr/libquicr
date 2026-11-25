@@ -3,24 +3,30 @@
 
 #include "quicr/handlers/track_handler.h"
 #include "quicr/session.h"
+#include "request.h"
 #include "stream.h"
 
 #include <stdexcept>
 
 namespace quicr {
-    std::optional<uint64_t> TrackHandler::GetRequestStreamId() const
+    void TrackHandler::BindRequest(std::shared_ptr<Request> request)
     {
-        std::lock_guard lock(request_stream_mutex_);
-        if (request_stream_ == nullptr) {
-            return std::nullopt;
+        if (!request) {
+            throw std::invalid_argument("Request cannot be null.");
         }
-        return request_stream_->GetStreamId();
+
+        std::lock_guard lock(request_mutex_);
+        if (!request_.expired()) {
+            throw std::logic_error("Handler is already bound to a request.");
+        }
+
+        request_ = std::move(request);
     }
 
-    std::shared_ptr<Connection> TrackHandler::GetConnection() const
+    void TrackHandler::UnbindRequest()
     {
-        std::lock_guard lock(request_stream_mutex_);
-        return request_stream_ ? request_stream_->GetConnection() : nullptr;
+        std::lock_guard lock(request_mutex_);
+        request_.reset();
     }
 
     std::weak_ptr<Session> TrackHandler::GetSession() const
@@ -52,6 +58,12 @@ namespace quicr {
         }
 
         registered_session_.reset();
+    }
+
+    std::shared_ptr<Request> TrackHandler::GetRequest() const
+    {
+        std::lock_guard lock(request_mutex_);
+        return request_.lock();
     }
 
     bool TrackHandler::IsRegistered() const
