@@ -8,8 +8,10 @@
 #include "quicr/utilities/bytes.h"
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 namespace quicr::messages {
@@ -126,15 +128,18 @@ namespace quicr::messages {
          * Finalizes the reserved two-byte big-endian payload length, if any.
          *
          * The returned reference exposes the same shared mutable storage passed
-         * to the constructor. Payload lengths larger than 65535 are truncated
-         * to 16 bits by the current implementation.
+         * to the constructor.
          * @return Reference to the builder's shared byte-vector handle.
+         * @throws std::length_error If the reserved payload length exceeds 65535 bytes.
          */
-        inline const std::shared_ptr<std::vector<uint8_t>>& ToBytes() const noexcept
+        inline const std::shared_ptr<std::vector<uint8_t>>& ToBytes() const
         {
             if (_length_bytes_offset.has_value()) {
-                const std::uint16_t payload_size = SwapBytes(
-                  static_cast<std::uint16_t>(_bytes->size() - _length_bytes_offset.value() - sizeof(std::uint16_t)));
+                const auto payload_length = _bytes->size() - _length_bytes_offset.value() - sizeof(std::uint16_t);
+                if (payload_length > std::numeric_limits<std::uint16_t>::max()) {
+                    throw std::length_error("Control message payload exceeds 65535 bytes");
+                }
+                const std::uint16_t payload_size = SwapBytes(static_cast<std::uint16_t>(payload_length));
                 std::memcpy(_bytes->data() + _length_bytes_offset.value(), &payload_size, sizeof(std::uint16_t));
             }
 
@@ -144,8 +149,9 @@ namespace quicr::messages {
         /**
          * Finalizes the message and returns a non-owning view of its bytes.
          * @return Span valid while the shared vector remains alive and is not reallocated or mutated.
+         * @throws std::length_error If the reserved payload length exceeds 65535 bytes.
          */
-        inline std::span<const std::uint8_t> ToByteSpan() const noexcept { return *ToBytes(); }
+        inline std::span<const std::uint8_t> ToByteSpan() const { return *ToBytes(); }
 
         /// Removes all bytes and any reserved-length state; shared storage remains owned.
         void Clear() noexcept
