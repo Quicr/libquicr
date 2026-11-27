@@ -66,6 +66,12 @@ TestServer::PublishReceived(const std::shared_ptr<quicr::Session>& session,
 {
     std::lock_guard lock(state_mutex_);
 
+    if (publish_auth_tokens_promise_) {
+        auto tokens = publish_attributes.auth_tokens;
+        publish_auth_tokens_promise_->set_value(std::move(tokens));
+        publish_auth_tokens_promise_.reset();
+    }
+
     if (publish_error_.has_value()) {
         return quicr::Unexpected<quicr::Error<quicr::PublishErrorCode>>(*publish_error_);
     }

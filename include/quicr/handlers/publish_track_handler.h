@@ -261,6 +261,14 @@ namespace quicr {
          */
         constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
 
+        /**
+         * Set the credentials for PUBLISH before starting the handler.
+         * The same credentials are reused when PUBLISH is reissued during migration.
+         * @param auth_tokens List of non-duplicated tokens.
+         * @throws std::invalid_argument if tokens repeat the same type and value.
+         */
+        void SetAuthTokens(std::vector<messages::AuthToken> auth_tokens);
+
         // --------------------------------------------------------------------------
         // Methods that normally do not need to be overridden
         // --------------------------------------------------------------------------
@@ -463,6 +471,8 @@ namespace quicr {
 
         /// Pending requested group ID, when one has been recorded.
         std::optional<uint64_t> pending_new_group_request_id_;
+
+        std::vector<messages::AuthToken> auth_tokens_;
 
       private:
         void EndSubgroupInternal(uint64_t group_id, uint64_t subgroup_id, bool completed);

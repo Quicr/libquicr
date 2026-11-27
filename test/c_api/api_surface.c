@@ -66,6 +66,7 @@ static quicr_c_api_function_t const kApiFunctions[] = {
     QUICR_C_API_FUNCTION(quicr_publish_track_handler_end_subgroup),
     QUICR_C_API_FUNCTION(quicr_publish_track_handler_get_status),
     QUICR_C_API_FUNCTION(quicr_publish_track_handler_publish_object),
+    QUICR_C_API_FUNCTION(quicr_publish_track_handler_set_auth_tokens),
     QUICR_C_API_FUNCTION(quicr_server_config_init),
     QUICR_C_API_FUNCTION(quicr_session_bind_publish_fetch_handler),
     QUICR_C_API_FUNCTION(quicr_session_disconnect),

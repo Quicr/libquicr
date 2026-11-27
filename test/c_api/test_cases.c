@@ -392,6 +392,14 @@ quicr_c_test_handlers(void)
     QUICR_C_TEST_CHECK(quicr_publish_track_handler_get_status(publish, &publish_status) == QUICR_STATUS_OK);
     QUICR_C_TEST_CHECK(!quicr_publish_track_handler_can_publish(publish));
 
+    const uint8_t token_bytes[] = { 0xA5 };
+    const quicr_token_t token = { .token_type = 1, .token_value = { token_bytes, sizeof(token_bytes) } };
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_auth_tokens(publish, &token, 1) == QUICR_STATUS_OK);
+    const quicr_token_t duplicates[] = { token, token };
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_auth_tokens(publish, duplicates, 2) ==
+                       QUICR_STATUS_INVALID_ARGUMENT);
+    QUICR_C_TEST_CHECK(quicr_publish_track_handler_set_auth_tokens(publish, NULL, 0) == QUICR_STATUS_OK);
+
     quicr_object_headers_t headers;
     quicr_object_headers_init(&headers);
     quicr_publish_object_status_t object_status = QUICR_PUBLISH_OBJECT_STATUS_OK;

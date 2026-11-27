@@ -529,28 +529,6 @@ namespace quicr::messages {
     }
 
     /**
-     * Decodes authorization-token values.
-     * @param params Source parameters.
-     * @return Decoded tokens.
-     * @throws ProtocolViolationException for an invalid token alias discriminator.
-     * @warning Token bytes are sensitive opaque data and must not be logged.
-     */
-    inline std::vector<Token> CollectAuthTokens(const Parameters& params)
-    {
-        std::vector<Token> tokens;
-        for (const auto& [type_value, value] : params) {
-            if (static_cast<ParameterType>(type_value) != ParameterType::kAuthorizationToken) {
-                continue;
-            }
-            Token token{};
-            const BytesSpan span{ value };
-            span >> token;
-            tokens.push_back(std::move(token));
-        }
-        return tokens;
-    }
-
-    /**
      * Resolves the optional FORWARD byte.
      * @param params Parameters to inspect.
      * @param default_value Value to return when FORWARD is absent.

@@ -4,6 +4,7 @@
 CPMAddPackage("gh:doctest/doctest@2.5.2")
 
 add_executable(quicr_test
+    auth_tokens.cpp
     cache.cpp
     connect_uri.cpp
     data_storage.cpp

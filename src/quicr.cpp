@@ -2857,6 +2857,26 @@ extern "C"
         });
     }
 
+    quicr_status_t quicr_publish_track_handler_set_auth_tokens(quicr_publish_track_handler_t* handler,
+                                                               const quicr_token_t* tokens,
+                                                               size_t count)
+    {
+        return SafeCall([&] {
+            if (!handler || !handler->impl || (!tokens && count != 0)) {
+                return QUICR_STATUS_INVALID_ARGUMENT;
+            }
+
+            std::vector<messages::AuthToken> auth_tokens;
+            auth_tokens.reserve(count);
+            for (size_t i = 0; i < count; ++i) {
+                auth_tokens.emplace_back(static_cast<messages::AuthTokenType>(tokens[i].token_type),
+                                         ToCppType<Bytes>(tokens[i].token_value));
+            }
+            handler->impl->SetAuthTokens(std::move(auth_tokens));
+            return QUICR_STATUS_OK;
+        });
+    }
+
     quicr_status_t quicr_publish_track_handler_destroy(quicr_publish_track_handler_t* handler)
     {
         return DestroyHandler(handler);
@@ -3682,12 +3702,8 @@ extern "C"
 
             const auto& value = attributes->impl.auth_tokens[index];
             *token = {
-                .alias_type = static_cast<quicr_token_alias_type_t>(value.alias_type),
-                .has_token_alias = value.token_alias.has_value(),
-                .token_alias = value.token_alias.value_or(0),
-                .has_token_type = value.token_type.has_value(),
-                .token_type = value.token_type.value_or(0),
-                .token_value = ToCType<quicr_byte_span_t>(BytesSpan{ value.token_value }),
+                .token_type = static_cast<std::uint64_t>(value.type),
+                .token_value = ToCType<quicr_byte_span_t>(BytesSpan{ value.value }),
             };
 
             return QUICR_STATUS_OK;
