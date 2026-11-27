@@ -585,8 +585,8 @@ namespace quicr {
             if (!connection) {
                 throw std::invalid_argument("Stream has no connection");
             }
-            auto result = quic_transport_->Enqueue(
-              connection, stream, msg.ToBytes(), 0, 2000, { true, close_stream, false, false });
+            auto result =
+              quic_transport_->Enqueue(connection, stream, msg.ToBytes(), 0, 0, { true, close_stream, false, false });
 
             if (!result) {
                 // TODO: Propagate better to callers and handle more specifically. Keeping the throw for now.
