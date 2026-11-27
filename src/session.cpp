@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include "quicr/session.h"
+#include "auth_tokens.h"
 #include "connect_uri.h"
 #include "quicr/clock.h"
 #include "quicr/connection.h"
@@ -623,6 +624,14 @@ namespace quicr {
                         .Add(ParameterType::kForward, publish.forward)
                         .AddOptional(ParameterType::kExpires, publish.expires)
                         .AddOptional(ParameterType::kLargestObject, publish.largest_object);
+
+        for (const auto& token : publish.auth_tokens) {
+            params.Add(ParameterType::kAuthorizationToken,
+                       Token{ .alias_type = Token::AliasType::kUseValue,
+                              .token_alias = std::nullopt,
+                              .token_type = static_cast<std::uint64_t>(token.type),
+                              .token_value = token.value });
+        }
 
         auto extensions = TrackExtensions{}
                             .AddOptional(ExtensionType::kDeliveryTimeout, publish.delivery_timeout)
@@ -1569,7 +1578,7 @@ namespace quicr {
 
         const PublishAttributes publish{ .track_full_name = { tfn },
                                          .track_alias = track_handler->GetTrackAlias().value(),
-                                         .auth_tokens = {},
+                                         .auth_tokens = track_handler->auth_tokens_,
                                          .expires = 0, // TODO: Expires?
                                          .largest_object =
                                            std::make_optional(Location{ track_handler->largest_location_.group,
@@ -4810,6 +4819,33 @@ namespace quicr {
                                      ParameterType::kExpires,
                                      ParameterType::kLargestObject,
                                      ParameterType::kForward });
+                std::vector<AuthToken> auth_tokens;
+                try {
+                    auth_tokens = CollectAuthTokens(parameters);
+                } catch (const AuthTokenException& e) {
+                    switch (e.code) {
+                        case AuthTokenError::kKeyValueFormatting:
+                        case AuthTokenError::kCacheOverflow:
+                            throw;
+                        case AuthTokenError::kUnknownAlias:
+                            SendRequestError(stream,
+                                             request_id,
+                                             static_cast<ErrorCode>(TerminationReason::kUnknownAuthTokenAlias),
+                                             0ms,
+                                             "Unknown authorization-token alias",
+                                             true);
+                            return true;
+                        case AuthTokenError::kDuplicateToken:
+                            SendRequestError(stream,
+                                             request_id,
+                                             ErrorCode::kMalformedAuthToken,
+                                             0ms,
+                                             "Duplicate authorization token",
+                                             true);
+                            return true;
+                    }
+                    throw;
+                }
                 const auto default_publisher_group_order = ResolveDefaultPublisherGroupOrder(track_extensions);
                 const auto dynamic_groups = ResolveDynamicGroups(track_extensions);
                 const auto default_publisher_priority = ResolveDefaultPublisherPriority(track_extensions);
@@ -4817,7 +4853,7 @@ namespace quicr {
                 const auto delivery_timeout = ResolveDeliveryTimeout(track_extensions);
                 const PublishAttributes publish{ .track_full_name = { track_namespace, track_name },
                                                  .track_alias = track_alias,
-                                                 .auth_tokens = CollectAuthTokens(parameters),
+                                                 .auth_tokens = std::move(auth_tokens),
                                                  .expires = ResolveExpires(parameters),
                                                  .largest_object =
                                                    parameters.Get<Location>(messages::ParameterType::kLargestObject),

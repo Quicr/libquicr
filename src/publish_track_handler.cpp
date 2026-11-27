@@ -3,6 +3,7 @@
 
 #include "quicr/handlers/publish_track_handler.h"
 
+#include "auth_tokens.h"
 #include "quicr/messages/message_serialisation.h"
 #include "quicr/messages/parameters.h"
 #include "quicr/session.h"
@@ -37,6 +38,14 @@ namespace quicr {
                 }
                 break;
         }
+    }
+
+    void PublishTrackHandler::SetAuthTokens(std::vector<messages::AuthToken> auth_tokens)
+    {
+        if (!messages::AuthTokensAreUnique(auth_tokens)) {
+            throw std::invalid_argument("Authorization tokens must be unique");
+        }
+        auth_tokens_ = std::move(auth_tokens);
     }
 
     void PublishTrackHandler::StatusChanged(Status) {}

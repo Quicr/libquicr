@@ -269,6 +269,12 @@ namespace quicr_test {
             publish_error_ = quicr::Error<quicr::PublishErrorCode>{ reason_code, std::move(error_reason) };
         }
 
+        void SetPublishAuthTokensPromise(std::promise<std::vector<quicr::messages::AuthToken>> promise)
+        {
+            std::lock_guard lock(state_mutex_);
+            publish_auth_tokens_promise_ = std::move(promise);
+        }
+
         void SetTrackStatusError(std::optional<quicr::Error<quicr::RequestErrorCode>> error)
         {
             std::lock_guard _(state_mutex_);
@@ -491,6 +497,7 @@ namespace quicr_test {
         std::optional<std::promise<SubscribeDetails>> subscribe_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> subscribe_error_;
         std::optional<quicr::Error<quicr::PublishErrorCode>> publish_error_;
+        std::optional<std::promise<std::vector<quicr::messages::AuthToken>>> publish_auth_tokens_promise_;
         std::optional<quicr::Error<quicr::RequestErrorCode>> track_status_error_;
         std::optional<quicr::TrackStatusResponse> track_status_state_;
         std::optional<std::promise<SubscribeNamespaceDetails>> subscribe_namespace_promise_;

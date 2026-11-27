@@ -1961,6 +1961,56 @@ TEST_CASE("Integration - Rejected publish ends the publish handler")
     }
 }
 
+TEST_CASE("Integration - PUBLISH authorization tokens reach the receiving application")
+{
+    struct AuthPublishHandler : TestPublishTrackHandler
+    {
+        using TestPublishTrackHandler::TestPublishTrackHandler;
+        std::promise<ErrorCode> rejected;
+
+        void RequestError(ErrorCode code, std::string) override { rejected.set_value(code); }
+    };
+
+    const auto check_auth = [](const std::string& protocol, bool reject) {
+        auto session_mgr = MakeTestSessionManager();
+        auto server = MakeTestServer(session_mgr);
+        auto [session, callbacks] = MakeTestClient(session_mgr, true, std::nullopt, protocol);
+        std::promise<std::vector<messages::AuthToken>> credentials;
+        auto received = credentials.get_future();
+        server->SetPublishAuthTokensPromise(std::move(credentials));
+        if (reject) {
+            server->SetPublishError(PublishErrorCode::kNotAuthorized, "Publish not authorized");
+        }
+
+        const FullTrackName ftn{ TrackNamespace({ "auth" }), { 1 } };
+        const auto handler = std::make_shared<AuthPublishHandler>(ftn, TrackMode::kStream, 1, 1, 5000);
+        const std::vector<messages::AuthToken> tokens{ { messages::AuthTokenType::kApplicationDefined, { 0xAB, 0x00 } },
+                                                       { messages::AuthTokenType::kApplicationDefined, { 0xCD } } };
+        handler->SetAuthTokens(tokens);
+        auto rejected = handler->rejected.get_future();
+        session->PublishTrack(handler);
+
+        REQUIRE(received.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK(received.get() == tokens);
+        if (reject) {
+            REQUIRE(rejected.wait_for(kDefaultTimeout) == std::future_status::ready);
+            CHECK(rejected.get() == ErrorCode::kUnauthorized);
+        } else {
+            CHECK(WaitFor([&] { return handler->GetStatus() == PublishTrackHandler::Status::kOk; }));
+        }
+    };
+
+    SUBCASE("Accept over native QUIC")
+    {
+        check_auth("moq", false);
+    }
+
+    SUBCASE("Reject over WebTransport")
+    {
+        check_auth("https", true);
+    }
+}
+
 TEST_CASE("Integration - Cancelling a subgroup")
 {
     auto test_subgroup_cancel = [&](const std::string& protocol_scheme) {

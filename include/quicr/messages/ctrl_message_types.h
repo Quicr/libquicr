@@ -416,12 +416,21 @@ namespace quicr::messages {
         kInvalid = 0xFF,    ///< Internal invalid sentinel.
     };
 
-    /**
-     * Authorization token reference or value.
-     *
-     * Token payload bytes are sensitive and opaque. They must not be logged,
-     * interpreted by this serialization layer, or embedded in diagnostics.
-     */
+    enum class AuthTokenType : std::uint64_t
+    {
+        kApplicationDefined = 0,
+    };
+
+    /// Authorization token.
+    struct AuthToken
+    {
+        const AuthTokenType type; ///< MOQT Auth Token Type.
+        const Bytes value;        ///< Credential bytes.
+
+        bool operator==(const AuthToken&) const = default;
+    };
+
+    /// Auth token wire format.
     struct Token
     {
         /// Operation encoded at the beginning of an authorization-token value.
@@ -485,8 +494,8 @@ namespace quicr::messages {
      * token value, so callers must pass a span bounded to one token parameter.
      * @param buffer Input span bounded to one token parameter.
      * @param token Destination token.
-     * @return Empty suffix for value-carrying forms, otherwise the unconsumed suffix.
-     * @throws ProtocolViolationException for an unknown alias operation.
+     * @return An empty span on success.
+     * @throws ProtocolViolationException for an unknown alias operation or trailing bytes.
      * @warning Parsed token bytes are sensitive opaque data and must not be logged.
      */
     inline BytesSpan operator>>(BytesSpan buffer, Token& token)
@@ -524,6 +533,9 @@ namespace quicr::messages {
             }
             default:
                 throw ProtocolViolationException("Invalid AUTHORIZATION_TOKEN alias type");
+        }
+        if (!buffer.empty()) {
+            throw ProtocolViolationException("Trailing bytes in AUTHORIZATION_TOKEN");
         }
         return buffer;
     }

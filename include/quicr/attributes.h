@@ -95,7 +95,7 @@ namespace quicr {
 
         const std::uint64_t track_alias; ///< Connection-scoped alias assigned to the track by its publisher.
 
-        const std::vector<messages::Token> auth_tokens; ///< Authorization tokens carried by the request.
+        const std::vector<messages::AuthToken> auth_tokens; ///< Authorization tokens carried by the request.
 
         /// @brief Publish lifetime in milliseconds, when supplied.
         const std::optional<std::uint64_t> expires;

@@ -57,6 +57,13 @@ extern "C"
         size_t size;         ///< Number of bytes at data.
     } quicr_byte_span_t;
 
+    /** @brief Application-facing authorization credential. */
+    typedef struct quicr_token
+    {
+        uint64_t token_type;           ///< Token format identifier.
+        quicr_byte_span_t token_value; ///< Opaque credential bytes.
+    } quicr_token_t;
+
     /**
      * @brief Object location within a track.
      */
@@ -1448,6 +1455,19 @@ extern "C"
                                        quicr_publish_track_handler_t** handler);
 
     /**
+     * @brief Copy the credentials to use in the initial PUBLISH before starting the handler.
+     *
+     * @param handler Publish handler to configure.
+     * @param tokens Credentials to copy. May be NULL when count is zero.
+     * @param count Number of credentials. Zero clears the configured list.
+     *
+     * @return `OK` on success, `INVALID_ARGUMENT` for invalid inputs or duplicates, or an allocation error.
+     */
+    QUICR_C_API quicr_status_t quicr_publish_track_handler_set_auth_tokens(quicr_publish_track_handler_t* handler,
+                                                                           const quicr_token_t* tokens,
+                                                                           size_t count);
+
+    /**
      * @brief Destroy a detached publish handler.
      *
      * @param handler Handler to destroy.
@@ -2672,35 +2692,6 @@ extern "C"
         bool relative;                                     ///< Whether joining_start is relative.
         uint64_t joining_start;                            ///< Relative offset or absolute start, per relative.
     };
-
-    /**
-     * @name Authorization token alias operations
-     * @{
-     */
-
-    /** @brief Authorization-token alias operation. */
-    typedef uint64_t quicr_token_alias_type_t;
-    enum
-    {
-        QUICR_TOKEN_ALIAS_TYPE_DELETE = 0,    ///< Delete an alias.
-        QUICR_TOKEN_ALIAS_TYPE_REGISTER = 1,  ///< Register value under an alias.
-        QUICR_TOKEN_ALIAS_TYPE_USE_ALIAS = 2, ///< Refer to a registered alias.
-        QUICR_TOKEN_ALIAS_TYPE_USE_VALUE = 3, ///< Carry a token value directly.
-    };
-    /** @} */
-
-    /**
-     * @brief Parsed authorization token.
-     */
-    typedef struct quicr_token
-    {
-        quicr_token_alias_type_t alias_type; ///< Alias operation.
-        bool has_token_alias;                ///< Whether token_alias is present.
-        uint64_t token_alias;                ///< Alias value when present.
-        bool has_token_type;                 ///< Whether token_type is present.
-        uint64_t token_type;                 ///< Token type when present.
-        quicr_byte_span_t token_value;       ///< Borrowed callback-scoped token bytes.
-    } quicr_token_t;
 
     /**
      * @brief Create an empty owned extension collection.
