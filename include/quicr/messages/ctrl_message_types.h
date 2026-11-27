@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <variant>
 
 namespace quicr {
@@ -424,6 +425,12 @@ namespace quicr::messages {
     /// Authorization token.
     struct AuthToken
     {
+        AuthToken(AuthTokenType token_type, Bytes token_value)
+          : type(token_type)
+          , value(std::move(token_value))
+        {
+        }
+
         const AuthTokenType type; ///< MOQT Auth Token Type.
         const Bytes value;        ///< Credential bytes.
 
