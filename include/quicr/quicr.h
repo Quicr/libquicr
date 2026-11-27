@@ -1455,7 +1455,9 @@ extern "C"
                                        quicr_publish_track_handler_t** handler);
 
     /**
-     * @brief Copy the credentials to use in the initial PUBLISH before starting the handler.
+     * @brief Copy the credentials for PUBLISH before starting the handler.
+     *
+     * The same credentials are reused when PUBLISH is reissued during migration.
      *
      * @param handler Publish handler to configure.
      * @param tokens Credentials to copy. May be NULL when count is zero.

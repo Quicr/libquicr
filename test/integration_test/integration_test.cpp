@@ -1113,6 +1113,11 @@ TEST_CASE("Integration - GOAWAY migration")
                                           { 4, 5, 6 } };
         const auto publish_handler =
           PublishTrackHandler::Create(publish_name, TrackMode::kStream, 3, 3, 5000, { 0, 0 });
+        const std::vector<messages::AuthToken> publish_auth_tokens{
+            { messages::AuthTokenType::kApplicationDefined, { 0xAB, 0x00 } },
+            { messages::AuthTokenType::kApplicationDefined, { 0xCD } },
+        };
+        publish_handler->SetAuthTokens(publish_auth_tokens);
         original_session->PublishTrack(publish_handler);
         REQUIRE(WaitFor([&publish_handler] { return publish_handler->CanPublish(); }));
         REQUIRE_EQ(publish_handler->GetConnection(), old_connection);
@@ -1121,6 +1126,9 @@ TEST_CASE("Integration - GOAWAY migration")
         std::promise<TestServer::SubscribeDetails> new_subscribe_promise;
         auto new_subscribe_future = new_subscribe_promise.get_future();
         new_relay->SetSubscribePromise(std::move(new_subscribe_promise));
+        std::promise<std::vector<messages::AuthToken>> migrated_auth_promise;
+        auto migrated_auth_future = migrated_auth_promise.get_future();
+        new_relay->SetPublishAuthTokensPromise(std::move(migrated_auth_promise));
 
         old_server_session->GoAway(quicr::format("{}://{}:{}/relay", protocol_scheme, kIp, new_relay_port),
                                    std::chrono::seconds{ 5 });
@@ -1133,6 +1141,8 @@ TEST_CASE("Integration - GOAWAY migration")
         CHECK_EQ(new_subscribe.track_full_name.name_space, old_subscribe.track_full_name.name_space);
         CHECK_EQ(new_subscribe.track_full_name.name, old_subscribe.track_full_name.name);
         CHECK_EQ(new_subscribe.subscribe_attributes.filter, old_subscribe.subscribe_attributes.filter);
+        REQUIRE(migrated_auth_future.wait_for(kDefaultTimeout) == std::future_status::ready);
+        CHECK_EQ(migrated_auth_future.get(), publish_auth_tokens);
 
         // The original handler must be rebound in place to the original session's
         // new current connection.

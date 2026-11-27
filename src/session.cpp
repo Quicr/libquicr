@@ -3137,7 +3137,7 @@ namespace quicr {
                             .track_full_name = { full_name },
                             .track_alias =
                               publish_handler->GetTrackAlias().value_or(TrackHash(full_name).track_fullname_hash),
-                            .auth_tokens = {},
+                            .auth_tokens = publish_handler->auth_tokens_,
                             .expires = 0,
                             .largest_object = publish_handler->GetLargestLocation(),
                             .forward = true,

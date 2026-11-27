@@ -262,7 +262,8 @@ namespace quicr {
         constexpr messages::Location GetLargestLocation() const noexcept { return largest_location_; }
 
         /**
-         * Set the credentials to use for this request.
+         * Set the credentials for PUBLISH before starting the handler.
+         * The same credentials are reused when PUBLISH is reissued during migration.
          * @param auth_tokens List of non-duplicated tokens.
          * @throws std::invalid_argument if tokens repeat the same type and value.
          */
