@@ -55,3 +55,59 @@ jobs:
           -C ${{ env.BUILD_TYPE }}
           --output-on-failure
           --parallel 4
+
+  thread-sanitizer-integration-tests:
+    name: TSan
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Configure GCC 12
+        run: |
+          echo "CC=/usr/bin/gcc-12" >> "$GITHUB_ENV"
+          echo "CXX=/usr/bin/g++-12" >> "$GITHUB_ENV"
+
+      - name: Configure CMake
+        run: >
+          cmake -B ${{ github.workspace }}/build
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          -DCMAKE_BUILD_TYPE=Debug
+          -DBUILD_TESTING=ON
+          -DQUICR_BUILD_TESTS=ON
+          -DQUICR_BUILD_BENCHMARKS=OFF
+          -DQUICR_BUILD_EXAMPLES=OFF
+          -DQUICR_BUILD_C_BRIDGE=OFF
+          -DQUICR_ENABLE_THREAD_SANITIZER=ON
+
+      - name: Build integration tests
+        run: >
+          cmake --build ${{ github.workspace }}/build
+          --config Debug
+          --target quicr_integration_test generate_test_certs
+          -j
+
+      - name: Run integration tests
+        id: tsan
+        continue-on-error: true
+        env:
+          TSAN_OPTIONS: halt_on_error=1:exitcode=66
+        run: >
+          ctest --test-dir ${{ github.workspace }}/build/test/integration_test
+          -C Debug
+          --parallel 1
+          --output-on-failure
+
+      - name: Summarise TSan results
+        if: ${{ !cancelled() && (steps.tsan.outcome == 'success' || steps.tsan.outcome == 'failure') }}
+        env:
+          TSAN_OUTCOME: ${{ steps.tsan.outcome }}
+        run: |
+          echo "### TSan: $TSAN_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$TSAN_OUTCOME" = "failure" ]; then
+            echo "::warning::TSan integration tests failed. This check is advisory; review the Run integration tests log."
+            echo "Advisory failure. Review the **Run integration tests** log for test failures and race reports." >> "$GITHUB_STEP_SUMMARY"
+          fi
